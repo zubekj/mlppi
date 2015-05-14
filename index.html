@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="MLPPI : Multi-level machine learning prediction of protein-protein interactions">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>MLPPI</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/zubekj/mlppi">View on GitHub</a>
+
+          <h1 id="project_title">MLPPI</h1>
+          <h2 id="project_tagline">Multi-level machine learning prediction of protein-protein interactions</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/zubekj/mlppi/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/zubekj/mlppi/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h3>
+<a id="authors" class="anchor" href="#authors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors</h3>
+
+<ul>
+<li>Julian Zubek, Centre of New Technologies, University of Warsaw, Warsaw, Poland, Institute of Computer Science, Polish Academy of Sciences, Warsaw, Poland</li>
+<li>Marcin Tatjewski, Centre of New Technologies, University of Warsaw, Warsaw, Poland, Institute of Computer Science, Polish Academy of Sciences, Warsaw, Poland</li>
+<li>Adam Boniecki, Faculty of Mathematics, Informatics and Mechanics, University of Warsaw, Warsaw, Poland</li>
+<li>Maciej Mnich, Faculty of Mathematics and Computer Science, Jagiellonian University, Cracow, Poland</li>
+<li>Subhadip Basu, Department of Computer Science and Engineering, Jadavpur University, Kolkata, West Bengal, India</li>
+<li>Dariusz Plewczynski, Centre of New Technologies, University of Warsaw, Warsaw, Poland, Institute of Computer Science, Polish Academy of Sciences, Warsaw, Poland</li>
+</ul>
+
+<p>Contact: <a href="mailto:d.plewczynski@cent.uw.edu.pl">d.plewczynski@cent.uw.edu.pl</a></p>
+
+<h3>
+<a id="abstract" class="anchor" href="#abstract" aria-hidden="true"><span class="octicon octicon-link"></span></a>Abstract</h3>
+
+<p>Accurate identification of protein-protein interactions (PPI) is the key step in
+understanding proteins' biological functions, which are typically context-dependent.
+Many existing PPI predictors rely on aggregated features from protein sequences,
+however only a few methods exploit local information about specific residue contacts.</p>
+
+<p>In this work we present a two-stage machine learning approach for prediction of protein-protein
+interactions. We start with the carefully filtered data on protein complexes available for
+<em>Saccharomyces cerevisiae</em> in the Protein Data Bank (PDB) database.
+First, we build linear descriptions of interacting and non-interacting sequence segment pairs based
+on their inter-residue distances. Secondly, we train machine learning / to predict binary
+segment interactions for any two short sequence fragments.
+The final prediction of the protein-protein interaction is done using the 2D matrix representation
+of all-against-all possible interacting sequence segments of both analysed proteins. The
+level-I predictor achieves 0.88 AUC for micro-scale, i.e. <strong>residue-level</strong> prediction.
+The level-II predictor improves the results further by more complex learning paradigm.
+We perform 30-fold macro-scale, i.e. <strong>protein-level</strong> cross-validation experiment.
+The level-II predictor using PSIPRED-predicted secondary structure reaches 0.70 precision, 0.68 recall, and 0.70 AUC, whereas other popular
+methods provide results below 0.6 threshold (recall, precision, AUC). Our results
+demonstrate that multi-scale sequence features aggregation procedure is able to improve
+the machine learning results by more than 10% as compared to other sequence representations.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">MLPPI maintained by <a href="https://github.com/zubekj">zubekj</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
