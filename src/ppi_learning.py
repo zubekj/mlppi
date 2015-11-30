@@ -172,10 +172,17 @@ class FlatFeatureExtractor(object):
 #POS_NEG_DATA_FILE = "ppi_data/pos_neg.pkl"
 
 def load_dataset(filename):
-    npfile = open(filename, 'rb')
-    X = np.load(npfile)
-    Y = np.load(npfile)
-    npfile.close()
+    arrays = []
+    with open(filename, 'rb') as npfile:
+        try:
+            while True:
+                arrays.append(np.load(npfile))
+        except IOError:
+            pass
+    Y = arrays[-1]
+    X = []
+    for arr in arrays[:-1]:
+        X += list(arr)
     return (X, Y)
 
 def sequence_data(pos_neg_file):
@@ -290,52 +297,63 @@ def cv_experiment_two_halves(X, Y, labels):
     print("| "+ " | ".join(["{0:.2f} {1:.2f}".format(a.mean(), a.std())
         for a in [accuracy, precision, recall, auc]]) + " |")
 
-def cv_experiment(X, Y, labels, result_file):
-    #clf = ensemble.RandomForestClassifier(n_estimators=100)
-    clf = ensemble.RandomForestClassifier(n_estimators=300, max_depth=7, random_state=42)
-    #clf = svm.SVC(C=1.0, gamma=2.0)
-    #clf = linear_model.LogisticRegression(penalty="l2", C=1)
-    #clf = lda.LDA()
+
+def random_2level_train_test_split(Y, labels):
+
+    train = np.repeat(False, len(Y))
+    test = np.repeat(True, len(Y))
+
+    while sum(test) > sum(train):
+        idx = np.random.choice(np.arange(len(Y))[~train])
+        train[idx] = True
+        train = (np.in1d(labels[:, 0], labels[train].flatten()) &
+                 np.in1d(labels[:, 1], labels[train].flatten()))
+        test = ~(np.in1d(labels[:, 0], labels[train].flatten()) |
+                 np.in1d(labels[:, 1], labels[train].flatten()))
+
+    return train, test
+
+
+def dietterich_5_2cv_experiment(X, Y, labels, result_name):
+
+    print(X.shape, Y.shape)
+
+    clf = ensemble.RandomForestClassifier(n_estimators=300, max_depth=7,
+                                          random_state=42)
 
     Y_score = []
     Y_true = []
+    cv_fold = []
 
-    #kf = cross_validation.KFold(len(labels), n_folds=30, random_state=42)
-    #kf = cross_validation.KFold(len(Y), n_folds=10, random_state=42)
-    kf = cross_validation.StratifiedKFold(Y, n_folds=30, random_state=42)
-    #kf = cross_validation.ShuffleSplit(len(labels), n_iter=30, test_size=0.005, random_state=42)
-    #kf = cross_validation.LeaveOneOut(len(labels))
-    for train, test in kf:
-    #for train_mask, test_mask in kf:
-        test_mask = (np.in1d(labels[:,0], labels[test].flatten()) & np.in1d(labels[:,1], labels[test].flatten()))
-        train_mask = (np.invert(np.in1d(labels[:,0], labels[test].flatten())) & np.invert(np.in1d(labels[:,1], labels[test].flatten())))
+    np.random.seed(42)
+    for i in xrange(5):
+        train_mask, test_mask = random_2level_train_test_split(Y, labels)
 
-        #print(Y[test_mask], sum(Y[np.invert(train_mask)] == 1), sum(Y[np.invert(train_mask)] == 0))
-        #print(Y[test_mask], float(sum(Y[train_mask]))/sum(train_mask))
-        #exit(1)
+        print(sum(train_mask), sum(Y[train_mask]),
+              sum(test_mask), sum(Y[test_mask]), len(set(labels.flatten())) -
+              len(set(labels[train_mask].flatten()) |
+                  set(labels[test_mask].flatten())))
 
-        #print(sum(train_mask), sum(test_mask))
-
-        #test_mask = (labels[:,0] == p1) & (labels[:,1] == p2)
-        #train_mask = (labels[:,0] != p1) & (labels[:,1] != p1) & (labels[:,0] != p2) & (labels[:,1] != p2)
-
-        clf.fit(X[train_mask],Y[train_mask])
-        Y_score.append(clf.predict_proba(X[test_mask])[:,1])
-        #Y_score.append(clf.decision_function(X[test_mask])[:,0])
+        clf.fit(X[train_mask], Y[train_mask])
+        Y_score.append(clf.predict_proba(X[test_mask])[:, 1])
         Y_true.append(Y[test_mask])
 
-        joblib.dump(clf, "levelII_clf.zip", compress=3)
+        clf.fit(X[test_mask], Y[test_mask])
+        Y_score.append(clf.predict_proba(X[train_mask])[:, 1])
+        Y_true.append(Y[train_mask])
 
-        #print(metrics.roc_auc_score(Y_true[-1], Y_score[-1]))
+        cv_fold.append(["{0}a".format(i)] * sum(test_mask))
+        cv_fold.append(["{0}b".format(i)] * sum(train_mask))
 
     Y_score = np.hstack(Y_score)
     Y_true = np.hstack(Y_true)
+    cv_fold = np.hstack(cv_fold)
 
-    pd.DataFrame({"Y_true": Y_true, "Y_score": Y_score}).to_csv("yscores.csv",
-                                                                index=False)
+    pd.DataFrame({"Y_true": Y_true, "Y_score": Y_score,
+                  "cv_fold": cv_fold}).to_csv("yscores_5_2cv_{0}.csv".format(result_name),
+                                              index=False)
 
     Y_pred = np.array(Y_score > 0.5, dtype=int)
-    #Y_pred = np.array(Y_score > 0.0, dtype=int)
 
     accuracy = [metrics.accuracy_score(Y_true, Y_pred)]
     precision = [metrics.precision_score(Y_true, Y_pred)]
@@ -352,11 +370,66 @@ def cv_experiment(X, Y, labels, result_file):
     recall = np.array(recall)
     auc = np.array(auc)
 
-    #print("| Accuracy  | Precision | Recall    | AUC       |")
-    #print("| "+ " | ".join(["{0:.2f}".format(a.mean(), a.std())
-    #    for a in [accuracy, precision, recall, auc]]) + " |")
+    with open("res_{0}.txt".format(result_name), "w") as f:
+        f.write("& " + " & ".join(["{0:.2f}".format(a.mean(), a.std())
+                for a in [accuracy, precision, recall, auc]]) + "\\\\\n")
+        f.write("TP={0} FP={1} TN={2} FN={3}".format(TP, FP, TN, FN))
+
+
+def cv_experiment(X, Y, labels, result_file):
+
+    print(X.shape, Y.shape)
+
+    clf = ensemble.RandomForestClassifier(n_estimators=300, max_depth=7,
+                                          random_state=42)
+
+    Y_score = []
+    Y_true = []
+    cv_fold = []
+
+    kf = cross_validation.StratifiedKFold(Y, n_folds=30, random_state=42)
+
+    for train, test in kf:
+        test_mask = (np.in1d(labels[:, 0], labels[test].flatten()) &
+                     np.in1d(labels[:, 1], labels[test].flatten()))
+        train_mask = (np.invert(np.in1d(labels[:, 0], labels[test].flatten())) &
+                      np.invert(np.in1d(labels[:, 1], labels[test].flatten())))
+
+        clf.fit(X[train_mask], Y[train_mask])
+        Y_score.append(clf.predict_proba(X[test_mask])[:, 1])
+        Y_true.append(Y[test_mask])
+
+        cv_fold.append([0 if len(cv_fold) == 0 else cv_fold[-1][-1]+1]
+                       * sum(test_mask))
+
+    joblib.dump(clf, "levelII_clf.zip", compress=3)
+
+    Y_score = np.hstack(Y_score)
+    Y_true = np.hstack(Y_true)
+    cv_fold = np.hstack(cv_fold)
+
+    pd.DataFrame({"Y_true": Y_true, "Y_score": Y_score,
+                  "cv_fold": cv_fold}).to_csv("yscores.csv", index=False)
+
+    Y_pred = np.array(Y_score > 0.5, dtype=int)
+
+    accuracy = [metrics.accuracy_score(Y_true, Y_pred)]
+    precision = [metrics.precision_score(Y_true, Y_pred)]
+    recall = [metrics.recall_score(Y_true, Y_pred)]
+    auc = [metrics.roc_auc_score(Y_true, Y_score)]
+
+    TP = sum((Y_pred == 1)[Y_true == 1])
+    FP = sum((Y_pred == 1)[Y_true == 0])
+    TN = sum((Y_pred == 0)[Y_true == 0])
+    FN = sum((Y_pred == 0)[Y_true == 1])
+
+    accuracy = np.array(accuracy)
+    precision = np.array(precision)
+    recall = np.array(recall)
+    auc = np.array(auc)
+
     with open(result_file, "w") as f:
-        f.write("& "+ " & ".join(["{0:.2f}".format(a.mean(), a.std())
+        f.write("& " + " & ".join(["{0:.2f}".format(a.mean(), a.std())
                 for a in [accuracy, precision, recall, auc]]) + "\\\\\n")
         f.write("TP={0} FP={1} TN={2} FN={3}".format(TP, FP, TN, FN))
 
@@ -495,13 +568,14 @@ if __name__ == '__main__':
             for f in predictorI_files:
                 data_vectors.append(predictorI_data(f))
         else:
-            data_vectors.append(predictorI_aggregated_data(predictorI_files, labels))
+            data_vectors.append(predictorI_aggregated_data(predictorI_files,
+                                                           labels))
 
     if len(data_vectors) == 0:
-        print "You must specify at least one data source."
+        print("You must specify at least one data source.")
         exit(0)
 
-    print "Data sources: " + " ".join(args.data_files)
+    print("Data sources: " + " ".join(args.data_files))
 
     X, Y = merge_data(data_vectors)
     labels = np.array(labels)

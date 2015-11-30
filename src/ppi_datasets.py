@@ -91,6 +91,10 @@ def load_data(ppi_list, pdb_db, uid2secstr_file=None):
     negatives_set = set()
     positives = []
     negatives = []
+    pos_interactions_out = []
+    neg_interactions_out = []
+
+    pdb_conn = None
 
     if uid2secstr_file:
         uid2secstr = pd.read_csv(uid2secstr_file, header=None, index_col=0)
@@ -98,6 +102,8 @@ def load_data(ppi_list, pdb_db, uid2secstr_file=None):
             return tuple(list(uid2secstr.loc[uid1]) +
                          list(uid2secstr.loc[uid2]))
     else:
+        pdb_conn = sqlite3.connect(pdb_db)
+        pdb_cur = pdb_conn.cursor()
         def get_sequence_structure(uid1, uid2):
             return get_sequence_structure_pdb(uid1, uid2, pdb_cur, up_parser)
 
@@ -106,66 +112,60 @@ def load_data(ppi_list, pdb_db, uid2secstr_file=None):
 
     up_parser = up_parsing.UPParser()
 
-    pdb_conn = sqlite3.connect(pdb_db)
-    pdb_cur = pdb_conn.cursor()
+    interactions = pd.read_csv(ppi_list)[['p1_uid', 'p2_uid']]
 
-    interactions = pd.read_csv(ppi_list)
     for r in interactions.iterrows():
         a, b = r[1]['p1_uid'], r[1]['p2_uid']
         if a == b:
-            next
+            continue
 
         # Assert that pair is in lexicographic order
         if a > b:
             a, b = b, a
 
-        a_seq, a_struct, b_seq, b_struct = get_sequence_structure(a, b)
-        if (a_seq and b_seq and len(a_seq) >= MIN_SEQ_LEN and\
-            len(b_seq) >= MIN_SEQ_LEN and (a,b) not in positives_set):
+        try:
+            a_seq, a_struct, b_seq, b_struct = get_sequence_structure(a, b)
+        except KeyError:
+            continue
+
+        if (a_seq and b_seq and len(a_seq) >= MIN_SEQ_LEN and
+            len(b_seq) >= MIN_SEQ_LEN and (a, b) not in positives_set):
             positives.append((a, b, a_seq, b_seq, a_struct, b_struct))
-            positives_set.add((a,b))
+            pos_interactions_out.append((a, b))
+            positives_set.add((a, b))
 
-
-    # Negatives from partial complement graph. !!! Unbiased but... not
-    # publishable !!!
     neg_interactions = create_partial_complement(interactions.values)
-    #
-    for a,b in neg_interactions:
-    #.........
 
-    # Negatives only from randomly paired proteins from positive set.
-    #up_ids = (list(interactions['p1_uid']) + list(interactions['p2_uid']))
-    #up_ids = list(set(list(interactions['p1_uid']) + list(interactions['p2_uid'])))
-
-    #random.seed(41)
-
-    #neg_interactions = []
-    #for i in xrange(len(positives)):
-    #    a = choice(up_ids)
-    #    b = choice(up_ids)
+    for a, b in neg_interactions:
 
         if a == b:
-            next
+            continue
 
         # Assert that pair is in lexicographic order
         if a > b:
             a, b = b, a
 
         if (a,b) in up_interactions or (b,a) in up_interactions:
-            next
+            continue
         if (a,b) in positives_set or (b,a) in positives_set:
-            next
+            continue
 
-        a_seq, a_struct, b_seq, b_struct = get_sequence_structure(a, b)
-        if (a_seq and b_seq and len(a_seq) >= MIN_SEQ_LEN and\
-            len(b_seq) >= MIN_SEQ_LEN and (a,b) not in negatives_set):
+        try:
+            a_seq, a_struct, b_seq, b_struct = get_sequence_structure(a, b)
+        except KeyError:
+            continue
+
+        if (a_seq and b_seq and len(a_seq) >= MIN_SEQ_LEN and
+            len(b_seq) >= MIN_SEQ_LEN and (a, b) not in negatives_set):
             negatives.append((a, b, a_seq, b_seq, a_struct, b_struct))
-            negatives_set.add((a,b))
-    #        neg_interactions.append((a,b))
+            negatives_set.add((a, b))
+            neg_interactions_out.append((a, b))
 
-    pdb_conn.close()
+    if pdb_conn is not None:
+        pdb_conn.close()
 
-    return (positives, negatives), np.vstack((interactions.values, np.array(neg_interactions)))
+    return (positives, negatives), np.array(pos_interactions_out +
+                                            neg_interactions_out)
 
 def save_pos_neg_data(data, interactions, filename, interactions_filename):
     with open(filename, 'wb') as cfile:

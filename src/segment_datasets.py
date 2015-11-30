@@ -192,7 +192,8 @@ def prepare_table(samples_cur, encoder, interaction_threshold, out_file, uid_fil
                 chosen_negatives = chosen_negatives[1:]
             i += 1
 
-def split_train_test(samples_cur, train_filename, test_filename):
+def split_train_test(samples_cur, train_filename, test_filename,
+                     train_examples=250):
 
     # Load full interaction graph
     interactions = set()
@@ -208,22 +209,22 @@ def split_train_test(samples_cur, train_filename, test_filename):
             nodes[n] += 1
     protein_uids = sorted(nodes, key=nodes.__getitem__, reverse=True)
 
-    # 2/3 in training test, 1/3 in testing set by node degree
-    #test_uids = set(protein_uids[0::3])
-    #train_uids = set(protein_uids[1::3] + protein_uids[2::3])
-
-    # 1/2 in training test, 1/2 in testing set by random
-    #train_uids, test_uids = train_test_split(protein_uids, train_size=0.5, random_state=42)
-    #train_uids = set(train_uids)
-    #test_uids = set(test_uids)
-
-    # Simulating old split method
-    samples_cur.execute('''SELECT * FROM (SELECT p2_uni_id FROM interactions UNION
-                                SELECT p1_uni_id from interactions) LIMIT 250;''')
-    train_uids = [r[0] for r in samples_cur.fetchall()]
-    samples_cur.execute('''SELECT * FROM (SELECT p2_uni_id FROM interactions UNION
-                                SELECT p1_uni_id from interactions) LIMIT -1 OFFSET 250;''')
-    test_uids = [r[0] for r in samples_cur.fetchall()]
+    if train_examples > 1:
+        # Simulating old split method
+        samples_cur.execute('''SELECT * FROM (SELECT p2_uni_id FROM interactions UNION
+                               SELECT p1_uni_id from interactions)
+                               LIMIT {0};'''.format(train_examples))
+        train_uids = [r[0] for r in samples_cur.fetchall()]
+        samples_cur.execute('''SELECT * FROM (SELECT p2_uni_id FROM interactions UNION
+                               SELECT p1_uni_id from interactions)
+                               LIMIT -1 OFFSET {0};'''.format(train_examples))
+        test_uids = [r[0] for r in samples_cur.fetchall()]
+    else:
+        train_uids, test_uids = train_test_split(protein_uids,
+                                                 train_size=train_examples,
+                                                 random_state=42)
+        train_uids = set(train_uids)
+        test_uids = set(test_uids)
 
     samples_cur.execute('''CREATE TEMP TABLE train_uids(uid CHAR(10) PRIMARY KEY NOT NULL);''')
     for uid in train_uids:
@@ -235,21 +236,29 @@ def split_train_test(samples_cur, train_filename, test_filename):
 
     train_interactions = pd.DataFrame([(p1, p2) for p1, p2 in interactions
         if p1 in train_uids and p2 in train_uids])
-    train_interactions.columns = ["p1_uid", "p2_uid"]
+    try:
+        train_interactions.columns = ["p1_uid", "p2_uid"]
+    except ValueError:
+        pass
     train_interactions.to_csv(train_filename, index=False)
 
     test_interactions = pd.DataFrame([(p1, p2) for p1, p2 in interactions
         if p1 in test_uids and p2 in test_uids])
-    test_interactions.columns = ["p1_uid", "p2_uid"]
+    try:
+        test_interactions.columns = ["p1_uid", "p2_uid"]
+    except ValueError:
+        pass
     test_interactions.to_csv(test_filename, index=False)
 
+
 def create_data_table(samples_db, train_ids_file, test_ids_file, train_file,
-        test_file, encoder, interaction_threshold, filter_uids=False):
+                      test_file, encoder, interaction_threshold,
+                      filter_uids=False, train_examples=250):
     samples_conn = sqlite3.connect(samples_db)
     samples_cur = samples_conn.cursor()
 
     if filter_uids:
-        split_train_test(samples_cur, train_ids_file, test_ids_file)
+        split_train_test(samples_cur, train_ids_file, test_ids_file, train_examples)
         prepare_table(samples_cur, encoder, interaction_threshold, train_file, "train_uids")
         prepare_table(samples_cur, encoder, interaction_threshold, test_file, "test_uids")
     else:
@@ -258,8 +267,8 @@ def create_data_table(samples_db, train_ids_file, test_ids_file, train_file,
     encoder.close()
     samples_conn.close()
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generating data table from window samples stored in database.')
     parser.add_argument('samples_db', help='database with extracted pp_samples')
     parser.add_argument('out_file', help='file in with data table will be saved')

@@ -13,6 +13,7 @@ import aaindex
 
 from db_mapping.up_parsing import UPParser
 
+AA_SYMBOLS = "ARNDCEQGHILKMFPSTWYVUOBZJX-"
 
 hqi_db = "hqi.sqlite"
 
@@ -52,12 +53,12 @@ def encode_aaindex_liu_features(sequence):
 class SequenceFeatures(object):
 
     def get_hqi8_vector(self, ac):
-        return [get_aainex_feature(ac, r) for r in hqi8_recs]
+        return [get_aaindex_feature(ac, r) for r in hqi8_recs]
 
     def calculate_quasi_residue_couples(self, seq, l):
         freqs = {(i, ''.join(k)): 0
-                    for k in product(''.join(self.hqi8_data.keys()), repeat=2)
-                    for i in xrange(l)}
+                 for k in product(''.join(AA_SYMBOLS), repeat=2)
+                 for i in xrange(l)}
         for d in xrange(l):
             for i in xrange(len(seq)-d):
                 freqs[d, seq[i]+seq[i+d]] += 1
@@ -73,8 +74,7 @@ class SequenceFeatures(object):
                 (qrc_b[k] for k in sorted(qrc_b.keys()))))
 
     def calculate_aac_freqs(self, seq):
-        freqs = {k: 0 for k in self.hqi8_data.keys()}
-        #freqs = {k: 0 for k in "GHITEBS-"}
+        freqs = {k: 0 for k in AA_SYMBOLS}
         for a in seq:
             freqs[a] += 1
         for k in freqs:
@@ -107,8 +107,7 @@ class SequenceFeatures(object):
                  np.array([np.array(self.get_hqi8_vector(k))*aac_b[k] for k in sorted(aac_b.keys())]).flat))
 
     def calculate_2grams_freqs(self, seq):
-        freqs = {''.join(k): 0 for k in product(''.join(self.hqi8_data.keys()), repeat=2)}
-        #freqs = {''.join(k): 0 for k in product("GHITEBS-", repeat=2)}
+        freqs = {''.join(k): 0 for k in product(AA_SYMBOLS, repeat=2)}
         for i in xrange(len(seq)-1):
             freqs[seq[i]+seq[i+1]] += 1
         for k in freqs:

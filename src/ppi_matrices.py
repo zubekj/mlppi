@@ -81,27 +81,14 @@ class DatasetProcessor(object):
         probs = np.reshape(predictions, (nrow, ncol))
         return probs
 
-    def __call__(self, p):
-        return self.predict(p[2], p[3], p[4], p[5])
-
     def prepare_data(self, pos_neg_data):
         positives, negatives = pos_neg_data
 
-        # !!!TEST!!!
-        #positives = positives[:5]
-        #negatives = negatives[:5]
+        for p in chain(positives, negatives):
+            yield [self.predict(p[2], p[3], p[4], p[5])]
 
-        #def set_affinity():
-        #   affinity.set_process_affinity_mask(os.getpid(), 0xFFFFFFFF)
+        yield np.r_[np.ones(len(positives)), np.zeros(len(negatives))]
 
-        #pool = Pool(processes=PROCESSES, initializer=set_affinity)
-        #X = np.array(list(pool.map(self, chain(positives, negatives))))
-        X = np.array(list(map(self, chain(positives, negatives))))
-        Y = np.r_[np.ones(len(positives)), np.zeros(len(negatives))]
-
-        #pool.close()
-        #pool.join()
-        return (X, Y)
 
     def close(self):
         self.encoder.close()
@@ -119,21 +106,23 @@ def load_csv_data(filename):
                 negatives.append((row[0], row[1]))
     return (positives, negatives)
 
+
 def save_dataset(filename, window_classifier, encoder, pos_neg_file, window_length):
     pos_neg_data = load_pos_neg_data(pos_neg_file)
     data_processor = DatasetProcessor(window_classifier, encoder, window_length)
-    X, Y = data_processor.prepare_data(pos_neg_data)
-    data_processor.close()
     npfile = open(filename, 'wb')
-    np.save(npfile, X)
-    np.save(npfile, Y)
+    for arr in data_processor.prepare_data(pos_neg_data):
+        np.save(npfile, arr)
     npfile.close()
+    data_processor.close()
+
 
 def load_pos_neg_data(filename):
     cfile = open(filename, 'rb')
     data = cPickle.load(cfile)
     cfile.close()
     return data
+
 
 if __name__ == "__main__":
 

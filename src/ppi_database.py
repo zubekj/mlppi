@@ -50,6 +50,8 @@ def create_protein_database(idsfile, dbfile):
             print("Skipping {0} -- no SIFTS mapping.".format(pdb_id))
         except ParseError:
             print("Skipping {0} -- outdated UniProt refs.".format(pdb_id))
+        except TypeError:
+            print("Skipping {0} -- DSSP failed.".format(pdb_id))
         conn.commit()
 
     os.chdir(cdir)
