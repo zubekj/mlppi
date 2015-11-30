@@ -58,7 +58,7 @@ analyze the structure of *experiment.py* to learn the API.
 ## Supplied data ##
 
 You can find training and testing data sets as well as trained classifiers
-in the *experiments/yeast_experiment_recomb_psipred* directory:
+in the *experiments/yeast_experiment* directory:
 
 * pdb_yeast.id_list -- list of PDB complexes used in the experiment.
 * pdb_yeast.ppi.sqlite -- sqlite3 database with protein-protein interactions.
