@@ -8,8 +8,8 @@ Dariusz Plewczynski∗
 Aim of this project is to predict PPI using multiscale features. Accurate
 predictors could be then used for recovering protein interaction network.
 
-The starting point for this experiment is extracting complexes of bacterial
-proteins from PDB. Their sequences are sliced into segments using sliding
+The starting point for this experiment is extracting complexes of proteins from PDB.
+Their sequences are sliced into segments using sliding
 window technique. Pairs of interacting segments are used as a dataset for
 training level-I classifier. Level-II classifier uses the predictions of
 level-I classifier as an input and decides whether two proteins with known
