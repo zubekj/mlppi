@@ -42,7 +42,7 @@ def create_partial_complement(list_of_edges, verbose=False):
             end_node = np.random.choice(np.where(candidates_distances == np.amax(candidates_distances))[0])
             G2[start_node,end_node], G2[end_node,start_node] = 1, 1
             new_edges.append((nodes[start_node],nodes[end_node]))
-            degrees[end_node] -= 1 
+            degrees[end_node] -= 1
             degrees[start_node] -= 1
         else:
             garbage_degrees[start_node] = degrees[start_node]

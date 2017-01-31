@@ -34,7 +34,6 @@ psipred_secstr_file = "uid2secstr_psipred.csv"
 ppi_global_clf_result_file = "res_global.txt"
 ppi_matrix_clf_result_file = "res_matrix.txt"
 
-
 @transform(pdb_id_file, suffix(".id_list"), ".ppi.sqlite")
 def create_ppi_database(input_file, output_file):
     try:

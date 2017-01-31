@@ -46,7 +46,7 @@ def get_aaindex_feature(amino_acid, aai_record):
     return val
 
 def encode_aaindex_liu_features(sequence):
-    return np.array([[get_aaindex_feature(aa, r) for r in aai_recs]
+    return np.array([[get_aaindex_feature(aa, r) for r in hqi8_recs]
         for aa in sequence], dtype=np.float_)
 
 # Class for sequence-based features extraction.

@@ -8,6 +8,7 @@ from sklearn.externals import joblib
 
 from helpers import feature_extraction
 from helpers.matrix_processing import *
+from helpers.train_test_split import cv_split_tit_for_tat, random_cv_split_filtered
 
 #from scipy.misc import imresize
 
@@ -316,6 +317,8 @@ def random_2level_train_test_split(Y, labels):
 
 def dietterich_5_2cv_experiment(X, Y, labels, result_name):
 
+    labels = pd.DataFrame(labels)
+
     print(X.shape, Y.shape)
 
     clf = ensemble.RandomForestClassifier(n_estimators=300, max_depth=7,
@@ -327,23 +330,25 @@ def dietterich_5_2cv_experiment(X, Y, labels, result_name):
 
     np.random.seed(42)
     for i in xrange(5):
-        train_mask, test_mask = random_2level_train_test_split(Y, labels)
 
-        print(sum(train_mask), sum(Y[train_mask]),
-              sum(test_mask), sum(Y[test_mask]), len(set(labels.flatten())) -
-              len(set(labels[train_mask].flatten()) |
-                  set(labels[test_mask].flatten())))
+        suff = "a"
+        for train_mask, test_mask in random_cv_split_filtered(labels, n_folds=2):
 
-        clf.fit(X[train_mask], Y[train_mask])
-        Y_score.append(clf.predict_proba(X[test_mask])[:, 1])
-        Y_true.append(Y[test_mask])
+            train_mask = train_mask.values
+            test_mask = test_mask.values
 
-        clf.fit(X[test_mask], Y[test_mask])
-        Y_score.append(clf.predict_proba(X[train_mask])[:, 1])
-        Y_true.append(Y[train_mask])
+            print(sum(train_mask), sum(Y[train_mask]),
+                  sum(test_mask), sum(Y[test_mask]),
+                  len(set(labels.values.flatten())) -
+                  len(set(labels.values[train_mask].flatten()) |
+                      set(labels.values[test_mask].flatten())))
 
-        cv_fold.append(["{0}a".format(i)] * sum(test_mask))
-        cv_fold.append(["{0}b".format(i)] * sum(train_mask))
+            clf.fit(X[train_mask], Y[train_mask])
+            Y_score.append(clf.predict_proba(X[test_mask])[:, 1])
+            Y_true.append(Y[test_mask])
+
+            cv_fold.append(["{0}{1}".format(i, suff)] * sum(test_mask))
+            suff = "b"
 
     Y_score = np.hstack(Y_score)
     Y_true = np.hstack(Y_true)
@@ -376,7 +381,9 @@ def dietterich_5_2cv_experiment(X, Y, labels, result_name):
         f.write("TP={0} FP={1} TN={2} FN={3}".format(TP, FP, TN, FN))
 
 
-def cv_experiment(X, Y, labels, result_file):
+def cv_experiment(X, Y, labels, result_name):
+
+    labels = pd.DataFrame(labels)
 
     print(X.shape, Y.shape)
 
@@ -387,29 +394,31 @@ def cv_experiment(X, Y, labels, result_file):
     Y_true = []
     cv_fold = []
 
-    kf = cross_validation.StratifiedKFold(Y, n_folds=30, random_state=42)
+    np.random.seed(42)
+    for i, masks in enumerate(cv_split_tit_for_tat(labels, n_folds=10)):
 
-    for train, test in kf:
-        test_mask = (np.in1d(labels[:, 0], labels[test].flatten()) &
-                     np.in1d(labels[:, 1], labels[test].flatten()))
-        train_mask = (np.invert(np.in1d(labels[:, 0], labels[test].flatten())) &
-                      np.invert(np.in1d(labels[:, 1], labels[test].flatten())))
+        train_mask = masks[0].values
+        test_mask = masks[1].values
+
+        print(sum(train_mask), sum(Y[train_mask]),
+                sum(test_mask), sum(Y[test_mask]),
+                len(set(labels.values.flatten())) -
+                len(set(labels.values[train_mask].flatten()) |
+                    set(labels.values[test_mask].flatten())))
 
         clf.fit(X[train_mask], Y[train_mask])
         Y_score.append(clf.predict_proba(X[test_mask])[:, 1])
         Y_true.append(Y[test_mask])
 
-        cv_fold.append([0 if len(cv_fold) == 0 else cv_fold[-1][-1]+1]
-                       * sum(test_mask))
-
-    joblib.dump(clf, "levelII_clf.zip", compress=3)
+        cv_fold.append(["{0}".format(i)] * sum(test_mask))
 
     Y_score = np.hstack(Y_score)
     Y_true = np.hstack(Y_true)
     cv_fold = np.hstack(cv_fold)
 
     pd.DataFrame({"Y_true": Y_true, "Y_score": Y_score,
-                  "cv_fold": cv_fold}).to_csv("yscores.csv", index=False)
+                  "cv_fold": cv_fold}).to_csv("yscores_cv_{0}.csv".format(result_name),
+                                              index=False)
 
     Y_pred = np.array(Y_score > 0.5, dtype=int)
 
@@ -428,49 +437,72 @@ def cv_experiment(X, Y, labels, result_file):
     recall = np.array(recall)
     auc = np.array(auc)
 
-    with open(result_file, "w") as f:
+    with open("res_{0}.txt".format(result_name), "w") as f:
         f.write("& " + " & ".join(["{0:.2f}".format(a.mean(), a.std())
                 for a in [accuracy, precision, recall, auc]]) + "\\\\\n")
         f.write("TP={0} FP={1} TN={2} FN={3}".format(TP, FP, TN, FN))
 
-def cv_experiment_svm(X, Y, labels, result_file):
-    clf = svm.SVC(C=1.0, gamma=2.0)
+
+def cv_experiment_svm(X, Y, labels, result_name):
+
+    labels = pd.DataFrame(labels)
+
+    print(X.shape, Y.shape)
+
+    clf = svm.SVC()
 
     Y_score = []
     Y_true = []
+    cv_fold = []
 
-    kf = cross_validation.StratifiedKFold(Y, n_folds=30, random_state=42)
-    for train, test in kf:
-        test_mask = (np.in1d(labels[:,0], labels[test].flatten()) & np.in1d(labels[:,1], labels[test].flatten()))
-        train_mask = (np.invert(np.in1d(labels[:,0], labels[test].flatten())) & np.invert(np.in1d(labels[:,1], labels[test].flatten())))
+    np.random.seed(42)
+    for i, masks in enumerate(cv_split_tit_for_tat(labels, n_folds=10)):
 
-        print(sum(train_mask), sum(test_mask))
+        train_mask = masks[0].values
+        test_mask = masks[1].values
 
-        clf.fit(X[train_mask],Y[train_mask])
-        Y_score.append(clf.decision_function(X[test_mask])[:,0])
+        print(sum(train_mask), sum(Y[train_mask]),
+                sum(test_mask), sum(Y[test_mask]),
+                len(set(labels.values.flatten())) -
+                len(set(labels.values[train_mask].flatten()) |
+                    set(labels.values[test_mask].flatten())))
+
+        clf.fit(X[train_mask], Y[train_mask])
+        Y_score.append(clf.decision_function(X[test_mask]))
         Y_true.append(Y[test_mask])
+
+        cv_fold.append(["{0}".format(i)] * sum(test_mask))
 
     Y_score = np.hstack(Y_score)
     Y_true = np.hstack(Y_true)
+    cv_fold = np.hstack(cv_fold)
 
-    Y_pred = np.array(Y_score > 0.0, dtype=int)
+    pd.DataFrame({"Y_true": Y_true, "Y_score": Y_score,
+                  "cv_fold": cv_fold}).to_csv("yscores_cv_{0}_svm.csv".format(result_name),
+                                              index=False)
+
+    Y_pred = np.array(Y_score > 0.5, dtype=int)
 
     accuracy = [metrics.accuracy_score(Y_true, Y_pred)]
     precision = [metrics.precision_score(Y_true, Y_pred)]
     recall = [metrics.recall_score(Y_true, Y_pred)]
     auc = [metrics.roc_auc_score(Y_true, Y_score)]
 
+    TP = sum((Y_pred == 1)[Y_true == 1])
+    FP = sum((Y_pred == 1)[Y_true == 0])
+    TN = sum((Y_pred == 0)[Y_true == 0])
+    FN = sum((Y_pred == 0)[Y_true == 1])
+
     accuracy = np.array(accuracy)
     precision = np.array(precision)
     recall = np.array(recall)
     auc = np.array(auc)
 
-    #print("| Accuracy  | Precision | Recall    | AUC       |")
-    #print("| "+ " | ".join(["{0:.2f}".format(a.mean(), a.std())
-    #    for a in [accuracy, precision, recall, auc]]) + " |")
-    with open(result_file, "w") as f:
-        f.write("& "+ " & ".join(["{0:.2f}".format(a.mean(), a.std())
-                for a in [accuracy, precision, recall, auc]]) + "\\\\")
+    with open("res_svm_{0}.txt".format(result_name), "w") as f:
+        f.write("& " + " & ".join(["{0:.2f}".format(a.mean(), a.std())
+                for a in [accuracy, precision, recall, auc]]) + "\\\\\n")
+        f.write("TP={0} FP={1} TN={2} FN={3}".format(TP, FP, TN, FN))
+
 
 def grid_search_cv_experiment(X, Y, labels):
 

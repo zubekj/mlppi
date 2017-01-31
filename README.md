@@ -17,8 +17,7 @@ sequences interact or not.
 
 ## Requirements ##
 
-Experimental pipeline is implemented in Python 2. Because of the libraries
-requirements Python 3 is not supported.
+Experimental pipeline is implemented in Python.
 
 External software:
 * DSSP
@@ -103,3 +102,9 @@ columns:
 4. Protein B sequence
 5. Protein A secondary structure
 6. Protein B secondary structure
+
+## Citing ##
+
+Zubek, J., Tatjewski, M., Boniecki, A., Mnich, M., Basu, S., & Plewczynski, D. (2015). Multi-level machine learning prediction of protein–protein interactions in Saccharomyces cerevisiae. PeerJ, 3, e1041.
+
+Zubek, J., Tatjewski, M., Basu, S., & Plewczynski, D. (2015). Evaluating Multi-level Machine Learning Prediction of Protein-protein Interactions. In Computational Methods in Data Analysis ITRIA 2015 (pp. 199–211). Institute of Computer Science, Polish Academy of Sciences.
