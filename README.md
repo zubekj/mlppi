@@ -17,12 +17,15 @@ sequences interact or not.
 
 ## Requirements ##
 
-Experimental pipeline is implemented in Python.
+Experimental pipeline is implemented in Python 2.
 
 External software:
 * DSSP
 
-Python packages:
+Binary DSSP packages can be downloaded from *ftp://ftp.cmbi.ru.nl/pub/software/dssp/*
+and placed in any directory listed in the *PATH* variable of the environment.
+
+Python 2 packages:
 * prody
 * ruffus
 * pandas
