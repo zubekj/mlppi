@@ -58,7 +58,7 @@ def create_segment_datasets(input_file, output_files):
     segment_datasets.create_data_table(input_file, train_uid_file,
                                        test_uid_file, train_csv_file,
                                        test_csv_file, segment_feature_encoder,
-                                       interaction_threshold, True)
+                                       interaction_threshold, True, 0.7)
 
 
 @merge(create_segment_datasets, segment_classifier_file)
