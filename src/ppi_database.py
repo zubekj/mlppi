@@ -52,6 +52,8 @@ def create_protein_database(idsfile, dbfile):
             print("Skipping {0} -- outdated UniProt refs.".format(pdb_id))
         except TypeError:
             print("Skipping {0} -- DSSP failed.".format(pdb_id))
+        except IOError:
+            print("Skipping {0} -- not exists in PDB.".format(pdb_id))
         conn.commit()
 
     os.chdir(cdir)

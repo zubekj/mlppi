@@ -29,7 +29,7 @@ def create_partial_complement(list_of_edges, verbose=False):
 
     #heurystyka
     G2 = np.zeros((N,N))
-    G1 += np.identity(N) #zabezpieczenie przed wybraniem tego samego wierzchołka
+    G1 += np.identity(N, dtype=np.int64) #zabezpieczenie przed wybraniem tego samego wierzchołka
     garbage_degrees = np.zeros((N,)) #niewykorzystane stopnie
     new_edges = []
     while np.sum(degrees)>0:
